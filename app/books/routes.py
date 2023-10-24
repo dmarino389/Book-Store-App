@@ -31,12 +31,12 @@ def search_book():
 
 
 @books.post("/new")
-def handle_register():
+def handle_create_book():
     body = request.json
 
     if body is None:
         response = {
-            "message": "username and password are required to register"
+            "message": "You need to add a book."
         }
         return response, 400
 
@@ -70,75 +70,66 @@ def handle_register():
     }
     return response, 201
 
-from . import auth_blueprint as auth
+
 from flask_jwt_extended import create_access_token
 from flask import request, make_response
 from ..models import User
 from datetime import timedelta
 
-@auth.post("/register")
-def handle_register():
-    body = request.json
 
-    if body is None:
-        response = {
-            "message": "username and password are required to register"
-        }
-        return response, 400
-
-    username = body.get("username")
-    if username is None:
-        response = {
-            "message": "username is required"
-        }
-        return response, 400
-
-    password = body.get("password")
-    if password is None:
-        response = {
-            "message": "password is required"
-        }
-        return response, 400
-
-    existing_user = User.query.filter_by(username=username).one_or_none()
-    if existing_user is not None:
-        response = {
-            "message": "username already in use"
-        }
-        return response, 400
-    
-    user = User(username=username, password=password)
-    user.create()
-
-    response = {
-        "message": "user registered",
-        "data": user.to_response()
-    }
-    return response, 201
-
-
+#This allows the user to delete a current users book
 from flask_jwt_extended import jwt_required, current_user
 from ..models import Book
 
 @books.delete("/delete/<book_id>")
 @jwt_required()
-def handle_delete_quiz(book_id):
+def handle_delete_book(book_id):
     book = Book.query.filter_by(id=book_id).one_or_none()
     if book is None:
         response = {
-            "message": "quiz does not exist"
+            "message": "Book does not exist"
         }
         return response, 404
 
     if book.created_by != current_user.id:
         response = {
-            "message":"you cant delete someone elses quiz"
+            "message":"you cant delete someone elses entry"
         }
         return response, 401
     
     book.delete()
 
     response = {
-        "message": f"quiz {book.id} deleted"
+        "message": f"Book {book.id} deleted"
+    }
+    return response, 200
+
+
+# This code block allows for the book to be updated  
+@books.put("/update/book/<book_id>")
+@jwt_required()
+def handle_update_book(book_id):
+    body = request.json
+
+    book = Book.query.filter_by(id=book_id).one_or_none()
+    if book is None:
+        response = {
+            "message": "not found"
+        }
+        return response, 404
+
+    if book.created_by != current_user.id:
+        response = {"message":"no sir/maam. This doesnt seem to be yours."}
+        return response, 401
+    
+
+    book.title = body.get("title", book.title)
+    book.description = body.get("description", book.description)
+    
+    book.update()
+
+    response = {
+        "message": "quiz updated",
+        "quiz": book.to_response()
     }
     return response, 200
